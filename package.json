@@ -1,0 +1,26 @@
+{
+  "name": "nucEarl",
+  "version": "1.0.0",
+  "description": "Try for example",
+  "main": "nucEarl.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node test/nucEarlHypertext.test.js && node test/parseArgs.test.js && node test/applyExpansions.test.js"
+  },
+  "bin": {
+    "jurl": "./nucEarl.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chinrank/nucEarl.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Chinrank/nucEarl/issues"
+  },
+  "homepage": "https://github.com/Chinrank/nucEarl#readme"
+}
