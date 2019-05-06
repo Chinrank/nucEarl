@@ -30,10 +30,11 @@ let remainder = "";
 let state = "resolvingInitialHeaders";
 let nextState = "";
 let sentMessageCount = -1;
+let log;
 
 function doHeaders(srvSocket, chunk) {
     srvSocket.write(V_C + "\r\n"); //Send our ssh header
-    console.log(chunk.toString());
+    log(chunk.toString());
     V_S = Buffer.from(chunk.toString().trim()); //store theirs, needed for hashes
     sentMessageCount++;
 }
@@ -86,7 +87,7 @@ function sshAuthRequest(chunk, srvSocket) {
     //Time to request ssh-userauth, service request has code 5
     remainder = "";
 
-    console.log(chunk.toString("hex")); // The same message we sent, keys accepted.
+    log(chunk.toString("hex")); // The same message we sent, keys accepted.
     const { encrypter, hmac, decrypter } = generateEncrypterDecrypter(K, hash);
     hmacKey = hmac.hmacKey;
     decrypt = decrypter;
@@ -152,12 +153,11 @@ function sendUserPass(srvSocket, options) {
 }
 
 function sshSession(port, address, options, parsedArgs) {
+    log = parsedArgs["-v"] ? console.log : () => 1;
     const keyDetails = { kex: null, pubkey: null, cipher: null };
     const srvSocket = net.connect(port, address, () => {
         srvSocket.on("data", chunk => {
             if (state === "expectingHmac") {
-                const hmac = chunk.slice(0, 32);
-                console.log("hmac is ", hmac);
                 chunk = chunk.slice(32);
                 remainder = "";
                 state = nextState;
@@ -195,7 +195,7 @@ function sshSession(port, address, options, parsedArgs) {
                         "\x5a\x00\x00\x00\x07\x73\x65\x73\x73\x69\x6f\x6e\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x80"
                     );
                     const packet = writePacket(payload);
-                    console.log(parsePacket(packet));
+                    log(parsePacket(packet));
                     srvSocket.write(
                         encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount)
                     );
@@ -245,6 +245,18 @@ function sshSession(port, address, options, parsedArgs) {
                     );
                     const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
                     remainder = chunk.slice(len.readUInt32BE(0) + 4);
+                    if (decipheredParsed.payload[0] === 94) {
+                        let firstPrintableChar;
+                        for (let i = 1; i < decipheredParsed.payload.length; i++) {
+                            if (decipheredParsed.payload[i] >= 32) {
+                                firstPrintableChar = i;
+                                break;
+                            }
+                        }
+                        //SSH_MSG_CHANNEL_DATA
+                        console.log(decipheredParsed.payload.slice(firstPrintableChar).toString());
+                    }
+
                     logPacket(decipheredParsed);
                     state = "expectingHmac";
                     nextState = "DO_REST";
@@ -273,8 +285,8 @@ function logPacket(packet) {
     Object.keys(packet).forEach(key => {
         stringedRecievedPacket[key] = packet[key].toString();
     });
-    console.log(stringedRecievedPacket);
-    console.log("\n\n");
+    log(stringedRecievedPacket);
+    log("\n\n");
 }
 
 module.exports = sshSession;
