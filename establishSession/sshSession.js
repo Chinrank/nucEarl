@@ -26,15 +26,16 @@ let hash;
 let hmacKey;
 let decrypt;
 let encrypt;
-let step = 0;
 let remainder = "";
 let state = "resolvingInitialHeaders";
 let nextState = "";
+let sentMessageCount = -1;
 
 function doHeaders(srvSocket, chunk) {
     srvSocket.write(V_C + "\r\n"); //Send our ssh header
     console.log(chunk.toString());
     V_S = Buffer.from(chunk.toString().trim()); //store theirs, needed for hashes
+    sentMessageCount++;
 }
 
 function doKex(chunk, srvSocket, keyDetails) {
@@ -45,6 +46,7 @@ function doKex(chunk, srvSocket, keyDetails) {
     const { packet, payload } = writeKeyExchange();
     I_C = payload;
     srvSocket.write(packet);
+    sentMessageCount++;
 
     const clientKex = writeInitKexPacket(chunk);
     const initKexPacket = clientKex.initKexPacket;
@@ -52,6 +54,7 @@ function doKex(chunk, srvSocket, keyDetails) {
     keyDetails.pubkey = clientKex.pubkey;
     Q_C = keyDetails.pubkey;
     srvSocket.write(initKexPacket);
+    sentMessageCount++;
 }
 
 function doECDH(chunk, srvSocket, keyDetails) {
@@ -75,6 +78,7 @@ function doECDH(chunk, srvSocket, keyDetails) {
         crypto.randomBytes(10)
     ]);
     srvSocket.write(packetToSend);
+    sentMessageCount++;
 }
 
 function sshAuthRequest(chunk, srvSocket) {
@@ -96,7 +100,8 @@ function sshAuthRequest(chunk, srvSocket) {
 
     const packet = writePacket(payload);
 
-    srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, step));
+    srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount));
+    sentMessageCount++;
 }
 
 function confirmUserauthReq(chunk) {
@@ -141,7 +146,8 @@ function sendUserPass(srvSocket, options) {
     ]);
 
     const packet = writePacket(payload);
-    srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, step - 1));
+    srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount));
+    sentMessageCount++;
     remainder = "";
 }
 
@@ -153,8 +159,10 @@ function sshSession(port, address, options, parsedArgs) {
                 const hmac = chunk.slice(0, 32);
                 console.log("hmac is ", hmac);
                 chunk = chunk.slice(32);
+                remainder = "";
                 state = nextState;
             }
+
             if (state === "resolvingInitialHeaders") {
                 doHeaders(srvSocket, chunk);
                 state = "KEX_INIT";
@@ -186,8 +194,12 @@ function sshSession(port, address, options, parsedArgs) {
                     const payload = Buffer.from(
                         "\x5a\x00\x00\x00\x07\x73\x65\x73\x73\x69\x6f\x6e\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x80\x00>"
                     );
-                    const packet = writePacket(payload, 8);
-                    srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, step - 1, 8));
+                    const packet = writePacket(payload);
+                    srvSocket.write(
+                        encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount)
+                    );
+
+                    sentMessageCount++;
                     state = "expectingHmac";
                     nextState = "DO_EXEC_REQUEST";
                 } else {
@@ -217,8 +229,11 @@ function sshSession(port, address, options, parsedArgs) {
                     cmdLength,
                     cmd
                 ]);
-                const packet = writePacket(payload, 16);
-                srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, step - 1, 16));
+                const packet = writePacket(payload);
+                srvSocket.write(
+                    encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount)
+                );
+                sentMessageCount++;
                 state = "DO_REST";
             } else if (state === "DO_REST") {
                 if (chunk.length === 0) {
@@ -234,7 +249,6 @@ function sshSession(port, address, options, parsedArgs) {
                     nextState = "DO_REST";
                 }
             }
-            step++;
             if (remainder.length !== 0) {
                 srvSocket.emit("data", remainder);
             }
