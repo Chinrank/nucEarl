@@ -245,6 +245,8 @@ function sshSession(port, address, options, parsedArgs) {
                     );
                     const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
                     remainder = chunk.slice(len.readUInt32BE(0) + 4);
+                    logPacket(decipheredParsed);
+
                     if (decipheredParsed.payload[0] === 94) {
                         //SSH_MSG_CHANNEL_DATA
 
@@ -256,9 +258,9 @@ function sshSession(port, address, options, parsedArgs) {
                             }
                         }
                         console.log(decipheredParsed.payload.slice(firstPrintableChar).toString());
+                        srvSocket.destroy();
                     }
 
-                    logPacket(decipheredParsed);
                     state = "expectingHmac";
                     nextState = "DO_REST";
                 }
@@ -267,17 +269,6 @@ function sshSession(port, address, options, parsedArgs) {
                 srvSocket.emit("data", remainder);
             }
         });
-        handleInput(srvSocket);
-    });
-}
-function handleInput(srvSocket) {
-    let writeString = "";
-    process.stdin.on("data", chunk => {
-        writeString += chunk.toString().trim() + "\r\n";
-        if (writeString.slice(writeString.length - 4) === "\r\n\r\n") {
-            srvSocket.write(writeString);
-            writeString = "";
-        }
     });
 }
 
