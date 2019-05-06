@@ -246,6 +246,8 @@ function sshSession(port, address, options, parsedArgs) {
                     const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
                     remainder = chunk.slice(len.readUInt32BE(0) + 4);
                     if (decipheredParsed.payload[0] === 94) {
+                        //SSH_MSG_CHANNEL_DATA
+
                         let firstPrintableChar;
                         for (let i = 1; i < decipheredParsed.payload.length; i++) {
                             if (decipheredParsed.payload[i] >= 32) {
@@ -253,7 +255,6 @@ function sshSession(port, address, options, parsedArgs) {
                                 break;
                             }
                         }
-                        //SSH_MSG_CHANNEL_DATA
                         console.log(decipheredParsed.payload.slice(firstPrintableChar).toString());
                     }
 
