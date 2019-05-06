@@ -22,8 +22,9 @@ function parsePacket(packet) {
     const packetLength = packet.readUInt32BE(0);
     const paddingLength = packet.readUInt8(4);
     const payload = packet.slice(5, 5 + packetLength - 1 - paddingLength);
-    const padding = packet.slice(5 + packetLength - 1 - paddingLength);
-    return { packetLength, paddingLength, payload, padding };
+    const padding = packet.slice(5 + packetLength - 1 - paddingLength, 5 + packetLength - 1);
+    const remainder = packet.slice(5 + packetLength - 1);
+    return { packetLength, paddingLength, payload, padding, remainder };
 }
 
 function writeKeyExchange() {
@@ -136,7 +137,7 @@ function parseKeyExchange(buff) {
 }
 
 function parseECKey(buff) {
-    const { packetLength, paddingLength, payload, padding } = parsePacket(buff);
+    const { packetLength, paddingLength, payload, padding, remainder } = parsePacket(buff);
 
     let posBuff = 0;
 
@@ -169,7 +170,8 @@ function parseECKey(buff) {
         hostKey,
         ephPubKey,
         sig,
-        padding
+        padding,
+        remainder
     };
 
     return parsedPacket;
@@ -198,7 +200,7 @@ function computeExchangeHash(V_C, V_S, IC, I_S, K_S, Q_C, Q_S, K) {
     const hash = crypto.createHash("sha256");
     const hashBuff = Buffer.concat(buffArr);
     const exchangeHash = hash.update(hashBuff).digest();
-    return { hash, exchangeHash };
+    return exchangeHash;
 }
 
 function generateEncrypterDecrypter(secret, exchangeHash) {
