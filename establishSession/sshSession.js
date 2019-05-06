@@ -218,15 +218,21 @@ function sshSession(port, address, options, parsedArgs) {
                     cmd
                 ]);
                 const packet = writePacket(payload, 16);
-                srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, step - 1, 8));
+                srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, step - 1, 16));
                 state = "DO_REST";
             } else if (state === "DO_REST") {
-                const deciphered = decrypt.decipher.update(chunk);
-                const decipheredParsed = parsePacket(deciphered);
-                logPacket(decipheredParsed);
-                remainder = decipheredParsed.remainder;
-                state = "expectingHmac";
-                nextState = "DO_REST";
+                if (chunk.length === 0) {
+                } else {
+                    const len = decrypt.decipher.update(chunk.slice(0, 4));
+                    const deciphered = decrypt.decipher.update(
+                        chunk.slice(4, len.readUInt32BE(0) + 4)
+                    );
+                    const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
+                    remainder = chunk.slice(len.readUInt32BE(0) + 4);
+                    logPacket(decipheredParsed);
+                    state = "expectingHmac";
+                    nextState = "DO_REST";
+                }
             }
             step++;
             if (remainder.length !== 0) {
