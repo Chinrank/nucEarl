@@ -2,7 +2,7 @@ const crypto = require("crypto");
 
 function writePacket(payload) {
     const payloadLength = payload.length;
-    const paddingLength = 16 + (-(payloadLength + 1) % 16) + 12;
+    const paddingLength = 16 + (-(payloadLength + 1) % 16) + 12; // make sure packetLength + 4 % 16 === 0
 
     const packetLength = payloadLength + 1 + paddingLength;
 
@@ -262,7 +262,6 @@ function encryptAddHmac(packet, encrypter, payload, hmacKey, step) {
     const { packetLength, paddingLength } = parsePacket(packet);
     const encPacket = encrypter.cipher.update(packet);
 
-    // need packetLength + 4 to be multiple of 16
     let mac;
 
     mac = crypto.createHmac("sha256", hmacKey);
@@ -275,15 +274,6 @@ function encryptAddHmac(packet, encrypter, payload, hmacKey, step) {
 
     const paddingLenBuff = Buffer.alloc(1);
     paddingLenBuff.writeInt8(paddingLength);
-
-    console.log("hmac");
-    console.log(
-        stepBuff.toString("hex") +
-            payloadLenBuff.toString("hex") +
-            paddingLenBuff.toString("hex") +
-            payload.toString("hex") +
-            packet.slice(packet.length - paddingLength).toString("hex")
-    );
 
     mac.update(Buffer.concat([stepBuff, payloadLenBuff, paddingLenBuff]));
     mac.update(Buffer.concat([payload, packet.slice(packet.length - paddingLength)]));

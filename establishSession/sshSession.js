@@ -192,9 +192,10 @@ function sshSession(port, address, options, parsedArgs) {
                 if (decipheredParsed.payload.toString() === "4") {
                     //Make a session request
                     const payload = Buffer.from(
-                        "\x5a\x00\x00\x00\x07\x73\x65\x73\x73\x69\x6f\x6e\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x80\x00>"
+                        "\x5a\x00\x00\x00\x07\x73\x65\x73\x73\x69\x6f\x6e\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x80"
                     );
                     const packet = writePacket(payload);
+                    console.log(parsePacket(packet));
                     srvSocket.write(
                         encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount)
                     );
