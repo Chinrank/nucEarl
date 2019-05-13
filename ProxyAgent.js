@@ -42,7 +42,8 @@ function createConnection(proxy, opts, callback) {
             const secureChan = {
                 host: opts.host,
                 socket: socket,
-                rejectUnauthorized: proxy.ignoreSecurity
+                rejectUnauthorized: proxy.ignoreSecurity,
+                servername: opts.host
             };
             if (proxy.ca) {
                 secureChan.ca = proxy.ca;
