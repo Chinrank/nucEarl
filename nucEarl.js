@@ -21,9 +21,4 @@ function handleCommand(parsedArgs) {
     }
 }
 
-function getResult() {
-    const parsedArgs = expandArgs(parseArgs(process.argv.slice(2), curlFlags));
-    handleCommand(parsedArgs);
-}
-
-getResult();
+handleCommand(expandArgs(parseArgs(process.argv.slice(2), curlFlags)));
