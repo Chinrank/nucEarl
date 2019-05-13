@@ -30,7 +30,9 @@ function getProxy(parsedArgs) {
 }
 
 function defaultPort(protocol) {
-    return { "http:": 80, "https:": 443, "ftp:": 21 }[protocol];
+    return { "http:": 80, "https:": 443, "ftp:": 21, "--tcp": 80, "--tls": 443, "--ssh": 22 }[
+        protocol
+    ];
 }
 
 function chooseMethod(options, parsedArgs) {

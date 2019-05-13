@@ -45,7 +45,7 @@ function parseCmd(args, argFlags) {
     const isFlag = argFlags.hasOwnProperty(args[0]);
     const cmd = isFlag ? args[0] : argFlags.defaultFlag.name;
     const cmdArgs = [];
-    if (argFlags[cmd].minLength > args.length - 1) {
+    if (argFlags[cmd].minLength > args.length - (isFlag ? 1 : 0)) {
         throw new SyntaxError(
             `You have provided too few arguments for ${cmd}, it needs at least ${
                 argFlags[cmd].minLength
