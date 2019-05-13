@@ -165,7 +165,6 @@ function makeSessionRequest(chunk, srvSocket) {
     const deciphered = decrypt.decipher.update(chunk.slice(4, len.readUInt32BE(0) + 4));
     const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
     remainder = chunk.slice(len.readUInt32BE(0) + 4);
-
     logPacket(decipheredParsed); //payload should be 4 for successful login
     if (decipheredParsed.payload.toString() === "4") {
         //Make a session request
@@ -276,7 +275,7 @@ function doSshSession(srvSocket, keyDetails, options, parsedArgs) {
             DO_EXEC_REQUEST: () => makeExecRequest(srvSocket, parsedArgs),
             DO_REST: () => doRest(chunk, srvSocket)
         }[state];
-        funcForState();
+        funcForState && funcForState();
 
         if (remainder.length !== 0) {
             srvSocket.emit("data", remainder);
