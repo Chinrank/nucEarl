@@ -45,4 +45,4 @@ Make them with a provided list of dns' `jurl --dns --dnsServers 208.67.222.222 8
 
 Execute a command on a remote machine with a ssh server (several caveats here, this is by no means at all a full implementation, it doesn't even bother to verify the hmacs of the response, only supports ECDH as it's key exchange algorithm, only lets you login via username and pass etc. Nonetheless it should work with a modern default ssh setup). It may be done over proxy also.
 
-`jurl --session --ssh ${name of the server}:${sshPort} -u ${username}:${password} --exec 'echo $((1 + 1 * 2))'`
+`jurl --session --ssh ${name of the server}:${sshPort} -u ${username}:${password} --exec 'echo $((1 + 1))'`
