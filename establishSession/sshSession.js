@@ -11,6 +11,7 @@ const {
     generateEncrypterDecrypter,
     encryptAddHmac
 } = require("../parsing/sshParsing");
+const { makeProxy } = require("../ProxyAgent");
 
 //https://tools.ietf.org/html/rfc4251#page-10
 
@@ -155,120 +156,128 @@ function sendUserPass(srvSocket, options) {
 function sshSession(port, address, options, parsedArgs) {
     log = parsedArgs["-v"] ? console.log : () => 1;
     const keyDetails = { kex: null, pubkey: null, cipher: null };
-    const srvSocket = net.connect(port, address, () => {
-        srvSocket.on("data", chunk => {
-            if (state === "expectingHmac") {
-                chunk = chunk.slice(32);
-                remainder = "";
-                state = nextState;
-            }
 
-            if (state === "resolvingInitialHeaders") {
-                doHeaders(srvSocket, chunk);
-                state = "KEX_INIT";
-            } else if (state === "KEX_INIT") {
-                doKex(chunk, srvSocket, keyDetails);
-                state = "KEX_ECDH";
-            } else if (state === "KEX_ECDH") {
-                doECDH(chunk, srvSocket, keyDetails);
-                state = "SSH_AUTH_REQUEST";
-            } else if (state === "SSH_AUTH_REQUEST") {
-                sshAuthRequest(chunk, srvSocket);
-                state = "CONFIRM_USER_AUTH";
-            } else if (state === "CONFIRM_USER_AUTH") {
-                confirmUserauthReq(chunk);
+    if (options.proxy) {
+        const { proxy, conOptions } = makeProxy(port, address, options, false);
+        proxy.createConnection(conOptions, (err, srvSocket) =>
+            doSshSession(srvSocket, keyDetails, options, parsedArgs)
+        );
+    } else {
+        const srvSocket = net.connect(port, address, () =>
+            doSshSession(srvSocket, keyDetails, options, parsedArgs)
+        );
+    }
+}
+
+function doSshSession(srvSocket, keyDetails, options, parsedArgs) {
+    srvSocket.on("data", chunk => {
+        if (state === "expectingHmac") {
+            chunk = chunk.slice(32);
+            remainder = "";
+            state = nextState;
+        }
+
+        if (state === "resolvingInitialHeaders") {
+            doHeaders(srvSocket, chunk);
+            state = "KEX_INIT";
+        } else if (state === "KEX_INIT") {
+            doKex(chunk, srvSocket, keyDetails);
+            state = "KEX_ECDH";
+        } else if (state === "KEX_ECDH") {
+            doECDH(chunk, srvSocket, keyDetails);
+            state = "SSH_AUTH_REQUEST";
+        } else if (state === "SSH_AUTH_REQUEST") {
+            sshAuthRequest(chunk, srvSocket);
+            state = "CONFIRM_USER_AUTH";
+        } else if (state === "CONFIRM_USER_AUTH") {
+            confirmUserauthReq(chunk);
+            state = "expectingHmac";
+            nextState = "SEND_USER_PASS";
+        } else if (state === "SEND_USER_PASS") {
+            sendUserPass(srvSocket, options);
+            state = "CONFIRM_AUTH_ACCEPT";
+        } else if (state === "CONFIRM_AUTH_ACCEPT") {
+            const len = decrypt.decipher.update(chunk.slice(0, 4));
+            const deciphered = decrypt.decipher.update(chunk.slice(4, len.readUInt32BE(0) + 4));
+            const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
+            remainder = chunk.slice(len.readUInt32BE(0) + 4);
+
+            logPacket(decipheredParsed); //payload should be 4 for successful login
+            if (decipheredParsed.payload.toString() === "4") {
+                //Make a session request
+                const payload = Buffer.from(
+                    "\x5a\x00\x00\x00\x07\x73\x65\x73\x73\x69\x6f\x6e\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x80"
+                );
+                const packet = writePacket(payload);
+                log(parsePacket(packet));
+                srvSocket.write(
+                    encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount)
+                );
+
+                sentMessageCount++;
                 state = "expectingHmac";
-                nextState = "SEND_USER_PASS";
-            } else if (state === "SEND_USER_PASS") {
-                sendUserPass(srvSocket, options);
-                state = "CONFIRM_AUTH_ACCEPT";
-            } else if (state === "CONFIRM_AUTH_ACCEPT") {
+                nextState = "DO_EXEC_REQUEST";
+            } else {
+                state = "expectingHmac";
+                nextState = "CONFIRM_AUTH_ACCEPT";
+            }
+        } else if (state === "DO_EXEC_REQUEST") {
+            remainder = "";
+            // Time to make an exec request
+
+            const channel_request = Buffer.from("\x62"); // 98 as per https://tools.ietf.org/html/rfc4254
+            const channel = Buffer.from("\x00\x00\x00\x00"); //channel 0
+            const execMess = Buffer.from("\x00\x00\x00\x04exec");
+            const pleaseRespond = Buffer.from("\x01"); // This exec requires a response
+            const cmdLength = Buffer.alloc(4);
+
+            const command = parsedArgs["--exec"];
+            cmdLength.writeUInt32BE(command.length);
+
+            const cmd = Buffer.from(command);
+
+            const payload = Buffer.concat([
+                channel_request,
+                channel,
+                execMess,
+                pleaseRespond,
+                cmdLength,
+                cmd
+            ]);
+            const packet = writePacket(payload);
+            srvSocket.write(encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount));
+            sentMessageCount++;
+            state = "DO_REST";
+        } else if (state === "DO_REST") {
+            if (chunk.length === 0) {
+            } else {
                 const len = decrypt.decipher.update(chunk.slice(0, 4));
                 const deciphered = decrypt.decipher.update(chunk.slice(4, len.readUInt32BE(0) + 4));
                 const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
                 remainder = chunk.slice(len.readUInt32BE(0) + 4);
+                logPacket(decipheredParsed);
 
-                logPacket(decipheredParsed); //payload should be 4 for successful login
-                if (decipheredParsed.payload.toString() === "4") {
-                    //Make a session request
-                    const payload = Buffer.from(
-                        "\x5a\x00\x00\x00\x07\x73\x65\x73\x73\x69\x6f\x6e\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x80"
-                    );
-                    const packet = writePacket(payload);
-                    log(parsePacket(packet));
-                    srvSocket.write(
-                        encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount)
-                    );
+                if (decipheredParsed.payload[0] === 94) {
+                    //SSH_MSG_CHANNEL_DATA
 
-                    sentMessageCount++;
-                    state = "expectingHmac";
-                    nextState = "DO_EXEC_REQUEST";
-                } else {
-                    state = "expectingHmac";
-                    nextState = "CONFIRM_AUTH_ACCEPT";
-                }
-            } else if (state === "DO_EXEC_REQUEST") {
-                remainder = "";
-                // Time to make an exec request
-
-                const channel_request = Buffer.from("\x62"); // 98 as per https://tools.ietf.org/html/rfc4254
-                const channel = Buffer.from("\x00\x00\x00\x00"); //channel 0
-                const execMess = Buffer.from("\x00\x00\x00\x04exec");
-                const pleaseRespond = Buffer.from("\x01"); // This exec requires a response
-                const cmdLength = Buffer.alloc(4);
-
-                const command = parsedArgs["--exec"];
-                cmdLength.writeUInt32BE(command.length);
-
-                const cmd = Buffer.from(command);
-
-                const payload = Buffer.concat([
-                    channel_request,
-                    channel,
-                    execMess,
-                    pleaseRespond,
-                    cmdLength,
-                    cmd
-                ]);
-                const packet = writePacket(payload);
-                srvSocket.write(
-                    encryptAddHmac(packet, encrypt, payload, hmacKey, sentMessageCount)
-                );
-                sentMessageCount++;
-                state = "DO_REST";
-            } else if (state === "DO_REST") {
-                if (chunk.length === 0) {
-                } else {
-                    const len = decrypt.decipher.update(chunk.slice(0, 4));
-                    const deciphered = decrypt.decipher.update(
-                        chunk.slice(4, len.readUInt32BE(0) + 4)
-                    );
-                    const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
-                    remainder = chunk.slice(len.readUInt32BE(0) + 4);
-                    logPacket(decipheredParsed);
-
-                    if (decipheredParsed.payload[0] === 94) {
-                        //SSH_MSG_CHANNEL_DATA
-
-                        let firstPrintableChar;
-                        for (let i = 1; i < decipheredParsed.payload.length; i++) {
-                            if (decipheredParsed.payload[i] >= 32) {
-                                firstPrintableChar = i;
-                                break;
-                            }
+                    let firstPrintableChar;
+                    for (let i = 1; i < decipheredParsed.payload.length; i++) {
+                        if (decipheredParsed.payload[i] >= 32) {
+                            firstPrintableChar = i;
+                            break;
                         }
-                        console.log(decipheredParsed.payload.slice(firstPrintableChar).toString());
-                        srvSocket.destroy();
                     }
-
-                    state = "expectingHmac";
-                    nextState = "DO_REST";
+                    console.log(decipheredParsed.payload.slice(firstPrintableChar).toString());
+                    srvSocket.destroy();
                 }
+
+                state = "expectingHmac";
+                nextState = "DO_REST";
             }
-            if (remainder.length !== 0) {
-                srvSocket.emit("data", remainder);
-            }
-        });
+        }
+        if (remainder.length !== 0) {
+            srvSocket.emit("data", remainder);
+        }
     });
 }
 

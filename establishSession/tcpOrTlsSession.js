@@ -1,8 +1,6 @@
 const net = require("net");
 const tls = require("tls");
-const { constructProxy } = require("../ProxyAgent");
-const http = require("http");
-const https = require("https");
+const { makeProxy } = require("../ProxyAgent");
 
 function handleInput(srvSocket) {
     let writeString = "";
@@ -13,22 +11,6 @@ function handleInput(srvSocket) {
             writeString = "";
         }
     });
-}
-
-function makeProxy(port, address, options, secure) {
-    const proxy = {};
-    const conOptions = {
-        ca: options.ca,
-        ignoreSecurity: options.ignoreSecurity,
-        secure: secure,
-        proxyProtocol: options.proxy.protocol === "https:" ? https : http,
-        proxyHost: options.proxy.hostname,
-        proxyPort: options.proxy.port,
-        host: address,
-        port: port
-    };
-    constructProxy(proxy, conOptions);
-    return { proxy, conOptions };
 }
 
 function tcpSession(port, address, options) {
