@@ -1,6 +1,6 @@
 # My dumb version of curl
 
-Install globally to unlock jurl.
+Install globally to unlock jurl, no dependencies other than node requried.
 
 Some samples of what we can do.
 
