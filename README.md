@@ -19,6 +19,8 @@ Make a head request `jurl google.com -I`
 Make a request using another method `jurl google.com -X DELETE`
 (Note, -X HEAD will give an empty response, as except in -I case we don't print the headers).
 
+Get headers from a request `jurl google.com --getHeaders`
+
 Post some data via x-www-form-urlencoded `jurl google.com --data password=secret --data username=chinrank`
 
 Post some data using multipart/form-data `jurl google.com --form file=@./test/hello.txt --form normalArg=thisone --form fileCopy=~@./test/hello.txt`
