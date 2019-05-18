@@ -32,6 +32,8 @@ let state = "resolvingInitialHeaders";
 let nextState = "";
 let sentMessageCount = -1;
 let log;
+let resultChunk = Buffer.alloc(0);
+let resultLenBuff;
 
 function doHeaders(chunk, srvSocket) {
     srvSocket.write(V_C + "\r\n"); //Send our ssh header
@@ -216,10 +218,19 @@ function makeExecRequest(srvSocket, parsedArgs) {
 function doRest(chunk, srvSocket) {
     if (chunk.length === 0) {
     } else {
-        const len = decrypt.decipher.update(chunk.slice(0, 4));
-        const deciphered = decrypt.decipher.update(chunk.slice(4, len.readUInt32BE(0) + 4));
-        const decipheredParsed = parsePacket(Buffer.concat([len, deciphered]));
-        remainder = chunk.slice(len.readUInt32BE(0) + 4);
+        if (resultChunk.length === 0) {
+            resultLenBuff = decrypt.decipher.update(chunk.slice(0, 4));
+        }
+        const packetLength = resultLenBuff.readUInt32BE(0);
+        resultChunk = Buffer.concat([resultChunk, chunk]);
+        if (resultChunk.length - 4 < packetLength) {
+            return; //break early until we have the full packet
+        }
+        const deciphered = decrypt.decipher.update(resultChunk.slice(4, packetLength + 4));
+        const decipheredParsed = parsePacket(Buffer.concat([resultLenBuff, deciphered]));
+        remainder = resultChunk.slice(packetLength + 4);
+        resultChunk = Buffer.alloc(0);
+        resultLen = null;
         logPacket(decipheredParsed);
 
         if (decipheredParsed.payload[0] === 94) {
@@ -233,6 +244,8 @@ function doRest(chunk, srvSocket) {
                 }
             }
             console.log(decipheredParsed.payload.slice(firstPrintableChar).toString());
+        }
+        if (decipheredParsed.payload[0] === 96) {
             srvSocket.destroy();
         }
 
@@ -261,6 +274,7 @@ function doSshSession(srvSocket, keyDetails, options, parsedArgs) {
     srvSocket.on("data", chunk => {
         if (state === "expectingHmac") {
             chunk = chunk.slice(32);
+            log("hmac recieved");
             remainder = "";
             state = nextState;
         }
