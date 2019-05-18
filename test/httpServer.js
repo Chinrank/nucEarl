@@ -1,11 +1,10 @@
 const http = require("http");
-const querystring = require("querystring");
 
 const server = http
     .createServer((req, res) => {
         if (req.url === "/redirect") {
-            res.statusCode = 200;
-            res.setHeader("Location", "localhost:" + process.argv[2]);
+            res.statusCode = 302;
+            res.setHeader("Location", "http://localhost:" + process.argv[2]);
             res.end();
         } else {
             typicalResponse(req, res);
