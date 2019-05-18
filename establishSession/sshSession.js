@@ -238,11 +238,12 @@ function doRest(chunk, srvSocket) {
 
             let firstPrintableChar;
             for (let i = 1; i < decipheredParsed.payload.length; i++) {
-                if (decipheredParsed.payload[i] >= 32) {
+                if (decipheredParsed.payload[i] >= 32 && decipheredParsed.payload[i] <= 126) {
                     firstPrintableChar = i;
                     break;
                 }
             }
+
             console.log(decipheredParsed.payload.slice(firstPrintableChar).toString());
         }
         if (decipheredParsed.payload[0] === 96) {
