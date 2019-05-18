@@ -34,6 +34,8 @@ let sentMessageCount = -1;
 let log;
 let resultChunk = Buffer.alloc(0);
 let resultLenBuff;
+let theResult = Buffer.alloc(0);
+let theExtendedResult = Buffer.alloc(0);
 
 function doHeaders(chunk, srvSocket) {
     srvSocket.write(V_C + "\r\n"); //Send our ssh header
@@ -235,18 +237,25 @@ function doRest(chunk, srvSocket) {
 
         if (decipheredParsed.payload[0] === 94) {
             //SSH_MSG_CHANNEL_DATA
-
-            let firstPrintableChar;
-            for (let i = 1; i < decipheredParsed.payload.length; i++) {
-                if (decipheredParsed.payload[i] >= 32 && decipheredParsed.payload[i] <= 126) {
-                    firstPrintableChar = i;
-                    break;
-                }
-            }
-
-            console.log(decipheredParsed.payload.slice(firstPrintableChar).toString());
+            const startPos = 5; //data starts at different pos based on type of data
+            const contentLength = decipheredParsed.payload.readUInt32BE(startPos);
+            theResult = Buffer.concat([
+                theResult,
+                decipheredParsed.payload.slice(startPos + 4, startPos + 4 + contentLength)
+            ]);
+        }
+        if (decipheredParsed.payload[0] === 95) {
+            //SSH_MSG_CHANNEL_EXTENDED_DATA;
+            const startPos = 9; //data starts at different pos based on type of data
+            const contentLength = decipheredParsed.payload.readUInt32BE(startPos);
+            theExtendedResult = Buffer.concat([
+                theExtendedResult,
+                decipheredParsed.payload.slice(startPos + 4, startPos + 4 + contentLength)
+            ]);
         }
         if (decipheredParsed.payload[0] === 96) {
+            console.log(theExtendedResult.toString());
+            console.log(theResult.toString());
             srvSocket.destroy();
         }
 
