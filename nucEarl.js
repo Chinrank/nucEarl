@@ -20,5 +20,4 @@ function handleCommand(parsedArgs) {
             .catch(err => console.error(err));
     }
 }
-
 handleCommand(expandArgs(parseArgs(process.argv.slice(2), curlFlags)));
