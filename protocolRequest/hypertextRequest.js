@@ -20,8 +20,12 @@ function handleResponse(res, resolve, reject, { options, parsedArgs, makeSingleR
         });
         res.on("error", err => reject(err));
         res.on("end", () => {
-            const content = parsedArgs["--getHeaders"] ? [res.headers, resp] : resp;
-            resolve(options.onlyHead ? res.headers : content);
+            const resHeaders = res.headers;
+            if (parsedArgs["--getStatus"]) {
+                resHeaders.statusCode = res.statusCode;
+            }
+            const content = parsedArgs["--getHeaders"] ? [resHeaders, resp] : resp;
+            resolve(options.onlyHead ? resHeaders : content);
         });
     }
 }

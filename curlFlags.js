@@ -31,5 +31,6 @@ module.exports = {
     "-v": { minLength: 0, maxLength: 0 },
     "--connect": { minLength: 0, maxLength: 0 },
     "--exec": { minLength: 1, maxLength: 1 },
-    "--getHeaders": { minLength: 0, maxLength: 0 }
+    "--getHeaders": { minLength: 0, maxLength: 0 },
+    "--getStatus": { minLength: 0, maxLength: 0 }
 };
