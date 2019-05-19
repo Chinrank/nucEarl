@@ -189,7 +189,7 @@ function computeExchangeHash(V_C, V_S, IC, I_S, K_S, Q_C, Q_S, K) {
     [Q_C, Q_S, K].forEach(arg => {
         let buff;
         if (arg[0] & 0x80) {
-            // to do with 2 complement
+            // to do with 2s complement
             buff = Buffer.concat([Buffer.from("\x00"), arg]);
         } else {
             buff = arg;
