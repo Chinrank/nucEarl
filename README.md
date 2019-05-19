@@ -33,7 +33,7 @@ Output the response of a request to a file `jurl google.com --location -o itsGoo
 
 Make multiple requests at once, outputting to several files `jurl google.com ask.com youtube.com --location -o google.html ask.html youtube.html`
 
-Use a weak amount of pattern matching `jurl '{google,ask}.com' google.com/search?q=[1-4:3] -o google.html ask.html goog[1-4:3].html`
+Use a weak amount of pattern matching `jurl '{google,ask}.com' google.com/search?q=[1-4:3] -o google.html ask.html goog[1-4:3].html --location`
 
 Turn off your proxy (jurl has some change of detecting it (if http appears in process.env)) `jurl localhost:8000 --noProxy`
 
