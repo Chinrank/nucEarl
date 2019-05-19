@@ -27,7 +27,7 @@ Get headers from a request `jurl google.com --getHeaders`
 
 Post some data via x-www-form-urlencoded `jurl google.com --data password=secret --data username=chinrank`
 
-Post some data using multipart/form-data `jurl google.com --form file=@./test/hello.txt --form normalArg=thisone --form fileCopy=~@./test/hello.txt`
+Post some data using multipart/form-data `jurl google.com --form file=@./test/hello.txt --form normalArg=thisone --form fileCopy=@./test/hello.txt`
 
 Output the response of a request to a file `jurl google.com --location -o itsGoogle.html`
 
